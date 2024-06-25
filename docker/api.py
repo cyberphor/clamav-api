@@ -1,4 +1,4 @@
-"""Defines the main module"""
+"""Defines the API for ClamD"""
 
 # import from standard library
 import os
@@ -13,22 +13,27 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 app = FastAPI()
 FastAPIInstrumentor.instrument_app(app)
 
-
 # define a handler for the "api" endpoint
 @app.post("/api/v1/scan")
 async def scan(file: UploadFile):
     """Endpoint for scanning files"""
-    with open(file.filename, "wb") as tmp:
-        tmp.write(await file.read())
+    upload_file_path = f"/tmp/{file.filename}"
+    with open(upload_file_path, "wb") as upload_file:
+        upload_file.write(await file.read())
     report = subprocess.run(
-        ["clamdscan", file.filename], stdout=subprocess.PIPE, check=False
+        ["clamdscan", upload_file_path], stdout=subprocess.PIPE, check=False
     )
-    os.remove(file.filename)
-    return report
-
+    os.remove(upload_file_path)
+    match report.returncode:
+        case 0:
+            return "benign"
+        case 1:
+            return "malicious"
+        case 2:
+            return "error"
 
 # define a handler for the healthcheck endpoint
 @app.get("/api/v1/ruok")
 async def healthcheck():
     """Endpoint to check the health of the API server"""
-    return {"status": "imok"}
+    return "imok"

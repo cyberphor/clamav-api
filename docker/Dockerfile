@@ -2,26 +2,23 @@
 FROM python:3.11
 LABEL Author="Victor Fernandez III, @cyberphor"
 
-# install ClamAV
+# install dependencies 
 RUN apt-get update && \
-    apt-get install -y clamav clamav-daemon
+    apt-get install -y clamav clamav-daemon &&\
+    python -m pip install fastapi uvicorn opentelemetry-instrumentation-fastapi
 
-# copy the ClamAV configuration file
+# copy files needed to run ClamAV and the API
 COPY clamd.conf /etc/clamav/clamd.conf
-
-# set permissions on ClamAV directories
-WORKDIR /var/run/clamav
 COPY api.py api.py
 COPY entrypoint.sh entrypoint.sh
-RUN chown -R clamav:clamav /var/run/clamav &&\
+
+# set permissions and update the ClamAV database
+RUN mkdir /var/run/clamav &&\
+    chown -R clamav:clamav /var/run/clamav &&\    
     chown -R clamav:clamav /var/lib/clamav &&\
-    chmod ug+x entrypoint.sh
+    chmod u+x entrypoint.sh &&\
+    freshclam
 
-# install the API's Python dependencies
-RUN python -m pip install fastapi uvicorn opentelemetry-instrumentation-fastapi
-
-# update the ClamAV signature database
-RUN freshclam
-
-# start the container
+# start the container as the ClamAV service account (a non-root user)
+USER clamav
 CMD [ "./entrypoint.sh" ]
