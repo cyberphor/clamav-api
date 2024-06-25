@@ -1,0 +1,7 @@
+services:
+  clamav:
+    build: docker
+    image: clamav:v1.0.0
+    container_name: clamav
+    ports:
+      - 8000:8000
